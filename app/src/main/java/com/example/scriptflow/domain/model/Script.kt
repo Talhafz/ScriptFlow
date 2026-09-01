@@ -9,5 +9,6 @@ data class Script(
     val content: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val lastPosition: Int = 0
+    val lastPosition: Int = 0,
+    val category: String? = null
 )

@@ -1,5 +1,6 @@
 package com.example.scriptflow.feature.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,7 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.scriptflow.domain.model.ScreenOrientation
 import com.example.scriptflow.domain.model.TextAlignment
@@ -26,25 +30,44 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        containerColor = Color.Black,
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { 
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::resetToDefaults) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Reset Defaults")
+                        Icon(
+                            Icons.Default.Refresh, 
+                            contentDescription = "Reset Defaults",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White
+                )
             )
         }
     ) { padding ->
         if (uiState.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else {
             Column(
@@ -52,51 +75,32 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
                 // Live Preview Section
-                Text("Live Preview", style = MaterialTheme.typography.titleMedium)
-                LivePreviewCard(settings = uiState.settings)
-
-                // Playback Section
-                SettingsSection(title = "Playback") {
-                    SliderSetting(
-                        label = "Words Per Minute",
-                        value = uiState.settings.wpm.toFloat(),
-                        range = 80f..250f,
-                        valueDisplay = { "${it.toInt()} WPM" },
-                        onValueChange = { viewModel.updateWpm(it.toInt()) }
-                    )
-                    
-                    DropdownSetting(
-                        label = "Countdown Duration",
-                        selectedOption = "${uiState.settings.countdownSeconds}s",
-                        options = listOf("0s", "3s", "5s", "10s"),
-                        onOptionSelected = { viewModel.updateCountdownSeconds(it.removeSuffix("s").toInt()) }
-                    )
-                }
-
-                // Appearance Section
-                SettingsSection(title = "Appearance") {
-                    Text("Theme Presets", style = MaterialTheme.typography.labelLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
                     ) {
-                        PresetTheme.entries.forEach { preset ->
-                            FilterChip(
-                                selected = uiState.activePreset == preset,
-                                onClick = { viewModel.applyThemePreset(preset) },
-                                label = { 
-                                    Text(preset.name.lowercase().replaceFirstChar { 
-                                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() 
-                                    }) 
-                                }
-                            )
-                        }
+                        Text(
+                            "Live Preview", 
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Real-time feedback",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+                    LivePreviewCard(settings = uiState.settings)
+                }
 
+                // PROMPTER Category
+                SettingsSection(title = "Prompter") {
                     SliderSetting(
                         label = "Font Size",
                         value = uiState.settings.fontSize,
@@ -113,17 +117,57 @@ fun SettingsScreen(
                         onValueChange = viewModel::updateLineSpacing
                     )
 
+                    SliderSetting(
+                        label = "Letter Spacing",
+                        value = uiState.settings.letterSpacing,
+                        range = -2f..10f,
+                        valueDisplay = { String.format(Locale.getDefault(), "%.1f", it) },
+                        onValueChange = viewModel::updateLetterSpacing
+                    )
+
                     AlignmentSetting(
                         selected = uiState.settings.textAlignment,
                         onAlignmentSelected = viewModel::updateTextAlignment
                     )
                 }
 
-                // Display Category
-                SettingsSection(title = "Display") {
+                // APPEARANCE Category
+                SettingsSection(title = "Appearance") {
+                    Text("Theme Presets", style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        PresetTheme.entries.filter { it != PresetTheme.CUSTOM }.forEach { preset ->
+                            ThemeSwatch(
+                                preset = preset,
+                                isSelected = uiState.activePreset == preset,
+                                onClick = { viewModel.applyThemePreset(preset) }
+                            )
+                        }
+                    }
+                }
+
+                // PLAYBACK Category
+                SettingsSection(title = "Playback") {
+                    SliderSetting(
+                        label = "Words Per Minute",
+                        value = uiState.settings.wpm.toFloat(),
+                        range = 80f..250f,
+                        valueDisplay = { "${it.toInt()} WPM" },
+                        onValueChange = { viewModel.updateWpm(it.toInt()) }
+                    )
+                    
+                    DropdownSetting(
+                        label = "Countdown Duration",
+                        selectedOption = "${uiState.settings.countdownSeconds}s",
+                        options = listOf("0s", "3s", "5s", "10s"),
+                        onOptionSelected = { viewModel.updateCountdownSeconds(it.removeSuffix("s").toInt()) }
+                    )
+
                     SwitchSetting(
                         label = "Mirror Mode",
-                        description = "Horizontal flip for beam-splitter glass",
+                        description = "Horizontal flip for prompter glass",
                         checked = uiState.settings.mirrorMode,
                         onCheckedChange = viewModel::toggleMirrorMode
                     )
@@ -147,15 +191,81 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+fun ThemeSwatch(
+    preset: PresetTheme,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val bgColor: Color
+    val textColor: Color
+    
+    when (preset) {
+        PresetTheme.CLASSIC -> {
+            bgColor = Color.Black
+            textColor = Color.White
+        }
+        PresetTheme.DARK -> {
+            bgColor = Color(0xFF151517)
+            textColor = Color(0xFFA7A7AC)
+        }
+        PresetTheme.HIGH_CONTRAST -> {
+            bgColor = Color.Black
+            textColor = Color(0xFFFFD54A) // Using WarningHighlight for pro contrast
+        }
+        PresetTheme.CUSTOM -> {
+            bgColor = Color(0xFF1C1C1F)
+            textColor = Color.White
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(80.dp)
+    ) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .size(60.dp),
+            shape = MaterialTheme.shapes.small,
+            color = bgColor,
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f)
+            )
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    "Aa", 
+                    color = textColor, 
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary
+            text = preset.name.lowercase().replaceFirstChar { it.uppercase() },
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), MaterialTheme.shapes.medium)
+            .padding(20.dp)
+    ) {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.sp
         )
         content()
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 

@@ -28,7 +28,7 @@ fun LivePreviewCard(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Box(
             modifier = Modifier

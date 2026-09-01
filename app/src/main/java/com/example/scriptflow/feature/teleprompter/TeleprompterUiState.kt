@@ -9,6 +9,7 @@ data class TeleprompterUiState(
     val settings: TeleprompterSettings = TeleprompterSettings(),
     val playbackState: PlaybackState = PlaybackState.Idle,
     val areControlsVisible: Boolean = true,
+    val isQuickSettingsVisible: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )

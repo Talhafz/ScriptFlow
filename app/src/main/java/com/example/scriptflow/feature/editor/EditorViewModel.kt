@@ -79,7 +79,7 @@ class EditorViewModel @Inject constructor(
         }
     }
 
-    private suspend fun saveScript() {
+    private suspend fun saveScript(): Long {
         val state = _uiState.value
         _uiState.value = state.copy(isSaving = true)
         
@@ -92,22 +92,23 @@ class EditorViewModel @Inject constructor(
         )
         
         val result = saveScriptUseCase(script)
-        result.onSuccess { newId ->
+        return result.getOrNull()?.let { newId ->
             _uiState.value = _uiState.value.copy(
                 scriptId = newId,
                 isSaving = false,
                 hasUnsavedChanges = false
             )
-        }.onFailure {
+            newId
+        } ?: state.scriptId.also {
             _uiState.value = _uiState.value.copy(isSaving = false)
         }
     }
 
-    fun forceSave(onComplete: () -> Unit = {}) {
+    fun forceSave(onComplete: (Long) -> Unit = {}) {
         viewModelScope.launch {
             saveJob?.cancel()
-            saveScript()
-            onComplete()
+            val id = saveScript()
+            onComplete(id)
         }
     }
 }

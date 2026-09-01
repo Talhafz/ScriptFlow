@@ -6,10 +6,13 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -17,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +33,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.scriptflow.domain.model.PlaybackState
-import com.example.scriptflow.domain.model.TextAlignment
 import com.example.scriptflow.feature.teleprompter.components.CountdownOverlay
 import com.example.scriptflow.feature.teleprompter.components.TeleprompterOverlayControls
 import kotlinx.coroutines.delay
@@ -61,7 +64,6 @@ fun TeleprompterScreen(
     // Handle background deletion
     LaunchedEffect(uiState.errorMessage) {
         if (uiState.errorMessage != null) {
-            // Give user time to see the error if they are already on screen
             if (uiState.isLoading.not()) {
                 delay(2000.milliseconds)
                 onBack()
@@ -74,21 +76,18 @@ fun TeleprompterScreen(
         val activity = context.findActivity() ?: return@DisposableEffect onDispose {}
         val originalOrientation = activity.requestedOrientation
         
-        // Handle Orientation
         if (uiState.settings.orientation == com.example.scriptflow.domain.model.ScreenOrientation.LANDSCAPE) {
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
         
-        // Handle Keep Screen Awake
         if (uiState.settings.keepScreenAwake) {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         
-        // Fullscreen / Immersive
         val windowInsetsController = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
@@ -103,17 +102,25 @@ fun TeleprompterScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(uiState.settings.backgroundColor))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                viewModel.toggleControls()
+            .background(Color.Black)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { viewModel.toggleControls() }
+                )
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { viewModel.showControls() },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        viewModel.onManualScroll(-dragAmount.y)
+                    }
+                )
             }
     ) {
         when {
             uiState.isLoading -> {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary)
             }
             uiState.errorMessage != null -> {
                 Text(
@@ -123,37 +130,40 @@ fun TeleprompterScreen(
                 )
             }
             else -> {
-            if (uiState.script?.content.isNullOrBlank()) {
-                Text(
-                    text = "No content to display",
-                    color = Color.Gray,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else {
-                TeleprompterContent(
-                    scriptContent = uiState.script?.content ?: "",
-                    settings = uiState.settings,
-                    scrollOffsetProvider = { scrollOffset },
-                    onTextLayoutMeasured = viewModel::onTextLayoutMeasured
-                )
-            }
+                if (uiState.script?.content.isNullOrBlank()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "No content to display",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color.White.copy(alpha = 0.3f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    TeleprompterContent(
+                        scriptContent = uiState.script?.content ?: "",
+                        settings = uiState.settings,
+                        scrollOffsetProvider = { scrollOffset },
+                        onTextLayoutMeasured = viewModel::onTextLayoutMeasured
+                    )
+                }
                 
-                // Reading Zone Overlay
-                ReadingZone(uiState.settings.textColor)
+                ReadingZone()
 
-                // Overlays
                 (uiState.playbackState as? PlaybackState.Countdown)?.let { countdown ->
                     CountdownOverlay(secondsLeft = countdown.secondsLeft)
                 }
 
                 TeleprompterOverlayControls(
                     isVisible = uiState.areControlsVisible,
+                    isQuickSettingsVisible = uiState.isQuickSettingsVisible,
                     playbackState = uiState.playbackState,
                     settings = uiState.settings,
                     onPlayPauseClick = viewModel::togglePlayback,
                     onRestartClick = viewModel::restartPlayback,
-                    onSpeedChange = viewModel::updateSpeed,
-                    onSettingsClick = { /* Navigate to Settings or show local settings */ },
+                    onFontSizeChange = viewModel::updateFontSize,
+                    onWpmChange = viewModel::updateWpm,
+                    onSettingsClick = viewModel::toggleQuickSettings,
                     onExitClick = onBack
                 )
             }
@@ -169,7 +179,7 @@ fun TeleprompterContent(
     onTextLayoutMeasured: (Float) -> Unit
 ) {
     val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
 
     Box(
         modifier = Modifier
@@ -179,66 +189,83 @@ fun TeleprompterContent(
                     scaleX = -1f
                 }
             },
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.TopCenter
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .wrapContentWidth(unbounded = true, align = Alignment.Start)
+                .fillMaxWidth()
                 .graphicsLayer {
-                    translationX = -scrollOffsetProvider()
+                    translationY = -scrollOffsetProvider()
                 }
                 .onGloballyPositioned { layoutCoordinates ->
-                    onTextLayoutMeasured(layoutCoordinates.size.width.toFloat())
-                },
-            verticalAlignment = Alignment.CenterVertically
+                    onTextLayoutMeasured(layoutCoordinates.size.height.toFloat())
+                }
+                .padding(horizontal = 48.dp)
         ) {
-            // Start Padding to start text at the reading zone (Center of screen)
-            Spacer(modifier = Modifier.width(screenWidth / 2))
+            Spacer(modifier = Modifier.height(screenHeight / 2))
+            
+            // To achieve the yellow text in the reading zone, we would ideally use a custom layout
+            // or a shader. For now, we'll use the primary color if we want the "Live" feel.
+            // The image shows the text *at* the reading zone is yellow.
             
             Text(
-                text = scriptContent.replace("\n", " "), // Ensure single line
-                color = Color(settings.textColor),
-                fontSize = settings.fontSize.sp,
-                lineHeight = (settings.fontSize * settings.lineSpacing).sp,
-                letterSpacing = settings.letterSpacing.sp,
-                textAlign = TextAlign.Start,
-                fontWeight = FontWeight.Black,
-                softWrap = false,
-                maxLines = 1,
-                modifier = Modifier.wrapContentWidth()
+                text = scriptContent,
+                color = Color.White, // Default color, ideally shadowed or masked
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontSize = settings.fontSize.sp,
+                    lineHeight = (settings.fontSize * settings.lineSpacing).sp,
+                    letterSpacing = settings.letterSpacing.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                textAlign = when (settings.textAlignment) {
+                    com.example.scriptflow.domain.model.TextAlignment.LEFT -> TextAlign.Start
+                    com.example.scriptflow.domain.model.TextAlignment.CENTER -> TextAlign.Center
+                    com.example.scriptflow.domain.model.TextAlignment.RIGHT -> TextAlign.End
+                },
+                modifier = Modifier.fillMaxWidth()
             )
             
-            // End Padding to allow scrolling past the end
-            Spacer(modifier = Modifier.width(screenWidth))
+            Spacer(modifier = Modifier.height(screenHeight))
         }
     }
 }
 
 @Composable
-fun ReadingZone(textColor: Long) {
+fun ReadingZone() {
     val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val zoneWidth = 200.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    val zoneHeight = 80.dp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = (screenWidth / 2) - (zoneWidth / 2))
+            .padding(vertical = (screenHeight / 2) - (zoneHeight / 2))
     ) {
-        // Vertical guides for horizontal scrolling
+        // High-vis yellow guides from image
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(Color(textColor).copy(alpha = 0.3f))
-                .align(Alignment.CenterStart)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(MaterialTheme.colorScheme.primary)
+                .align(Alignment.TopCenter)
         )
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(Color(textColor).copy(alpha = 0.3f))
-                .align(Alignment.CenterEnd)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(MaterialTheme.colorScheme.primary)
+                .align(Alignment.BottomCenter)
+        )
+        
+        // Active indicator arrow on the left
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(24.dp)
+                .align(Alignment.CenterStart)
+                .padding(start = 8.dp)
         )
     }
 }

@@ -38,7 +38,7 @@ class TeleprompterViewModel @Inject constructor(
     private var tickerJob: Job? = null
     private var controlsTimerJob: Job? = null
     
-    private var textWidth: Float = 0f
+    private var textHeight: Float = 0f
     private var pixelsPerSecond: Float = 0f
 
     init {
@@ -84,9 +84,9 @@ class TeleprompterViewModel @Inject constructor(
         }
     }
 
-    fun onTextLayoutMeasured(width: Float) {
-        if (width > 0 && textWidth != width) {
-            textWidth = width
+    fun onTextLayoutMeasured(height: Float) {
+        if (height > 0 && textHeight != height) {
+            textHeight = height
             calculateSpeed()
         }
     }
@@ -95,12 +95,12 @@ class TeleprompterViewModel @Inject constructor(
         val script = _uiState.value.script ?: return
         val settings = _uiState.value.settings
         
-        if (textWidth <= 0) return
+        if (textHeight <= 0) return
 
         val words = script.content.split(Regex("\\s+")).filter { it.isNotBlank() }.size.coerceAtLeast(1)
         val durationSeconds = if (settings.wpm > 0) (words.toDouble() / settings.wpm * 60) else 1.0
         
-        pixelsPerSecond = (textWidth / durationSeconds.toFloat()) * settings.scrollSpeed
+        pixelsPerSecond = (textHeight / durationSeconds.toFloat()) * settings.scrollSpeed
     }
 
     fun togglePlayback() {
@@ -148,7 +148,8 @@ class TeleprompterViewModel @Inject constructor(
                 _scrollOffset.value = newOffset
                 
                 // Stop if we scrolled past the end
-                if (newOffset > textWidth + 100) {
+                // We add some buffer so the last line passes the reading zone
+                if (newOffset > textHeight + 500) {
                     pausePlayback()
                     _uiState.value = _uiState.value.copy(playbackState = PlaybackState.Finished)
                 }
@@ -156,18 +157,36 @@ class TeleprompterViewModel @Inject constructor(
         }
     }
 
+    fun onManualScroll(delta: Float) {
+        _scrollOffset.value = (_scrollOffset.value + delta).coerceAtLeast(0f)
+        showControls()
+    }
+
     fun toggleControls() {
         if (_uiState.value.areControlsVisible) {
-            _uiState.value = _uiState.value.copy(areControlsVisible = false)
+            _uiState.value = _uiState.value.copy(
+                areControlsVisible = false,
+                isQuickSettingsVisible = false
+            )
             controlsTimerJob?.cancel()
         } else {
             showControls()
         }
     }
 
-    private fun showControls() {
+    fun showControls() {
         _uiState.value = _uiState.value.copy(areControlsVisible = true)
-        if (_uiState.value.playbackState is PlaybackState.Playing) {
+        if (_uiState.value.playbackState is PlaybackState.Playing && !_uiState.value.isQuickSettingsVisible) {
+            hideControlsWithDelay()
+        }
+    }
+
+    fun toggleQuickSettings() {
+        val nextVisible = !_uiState.value.isQuickSettingsVisible
+        _uiState.value = _uiState.value.copy(isQuickSettingsVisible = nextVisible)
+        if (nextVisible) {
+            controlsTimerJob?.cancel() // Keep visible while adjusting
+        } else if (_uiState.value.playbackState is PlaybackState.Playing) {
             hideControlsWithDelay()
         }
     }
@@ -175,8 +194,24 @@ class TeleprompterViewModel @Inject constructor(
     private fun hideControlsWithDelay() {
         controlsTimerJob?.cancel()
         controlsTimerJob = viewModelScope.launch {
-            delay(3000)
-            _uiState.value = _uiState.value.copy(areControlsVisible = false)
+            delay(2000) 
+            if (!_uiState.value.isQuickSettingsVisible) {
+                _uiState.value = _uiState.value.copy(areControlsVisible = false)
+            }
+        }
+    }
+
+    fun updateFontSize(size: Float) {
+        viewModelScope.launch {
+            val newSettings = _uiState.value.settings.copy(fontSize = size.coerceIn(20f, 72f))
+            updateSettingsUseCase(newSettings)
+        }
+    }
+
+    fun updateWpm(wpm: Int) {
+        viewModelScope.launch {
+            val newSettings = _uiState.value.settings.copy(wpm = wpm.coerceIn(80, 250))
+            updateSettingsUseCase(newSettings)
         }
     }
 
