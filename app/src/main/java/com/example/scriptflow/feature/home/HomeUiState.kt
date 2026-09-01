@@ -7,6 +7,8 @@ sealed class HomeUiState {
     object Empty : HomeUiState()
     data class Success(
         val scripts: List<Script>,
-        val searchQuery: String = ""
+        val searchQuery: String = "",
+        val isSearchActive: Boolean = false,
+        val selectedCategory: String = "All"
     ) : HomeUiState()
 }

@@ -11,6 +11,8 @@ import com.example.scriptflow.feature.home.HomeScreen
 import com.example.scriptflow.feature.editor.EditorScreen
 import com.example.scriptflow.feature.teleprompter.TeleprompterScreen
 import com.example.scriptflow.feature.settings.SettingsScreen
+import com.example.scriptflow.feature.splash.SplashScreen
+import com.example.scriptflow.feature.onboarding.OnboardingScreen
 
 @Composable
 fun NavGraph(
@@ -18,8 +20,26 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = Screen.Splash.route
     ) {
+        composable(Screen.Splash.route) {
+            SplashScreen(
+                onSplashFinished = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(Screen.Onboarding.route) {
+            OnboardingScreen(
+                onGetStarted = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                }
+            )
+        }
         composable(Screen.Home.route) {
             HomeScreen(
                 onNavigateToEditor = { scriptId ->

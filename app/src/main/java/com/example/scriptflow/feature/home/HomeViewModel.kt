@@ -43,21 +43,55 @@ class HomeViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState is HomeUiState.Success) {
             _uiState.value = currentState.copy(searchQuery = query)
-            filterScripts(query)
+            filterScripts(query, currentState.selectedCategory)
         }
     }
 
-    private fun filterScripts(query: String) {
-        val filtered = if (query.isBlank()) {
-            allScripts
-        } else {
-            allScripts.filter { it.title.contains(query, ignoreCase = true) }
+    fun toggleSearch() {
+        val currentState = _uiState.value
+        if (currentState is HomeUiState.Success) {
+            val nextSearchActive = !currentState.isSearchActive
+            val nextQuery = if (nextSearchActive) currentState.searchQuery else ""
+            _uiState.value = currentState.copy(
+                isSearchActive = nextSearchActive,
+                searchQuery = nextQuery
+            )
+            if (!nextSearchActive) {
+                filterScripts("", currentState.selectedCategory)
+            }
+        }
+    }
+
+    fun onCategorySelected(category: String) {
+        val currentState = _uiState.value
+        if (currentState is HomeUiState.Success) {
+            _uiState.value = currentState.copy(selectedCategory = category)
+            filterScripts(currentState.searchQuery, category)
+        }
+    }
+
+    private fun filterScripts(query: String, category: String) {
+        var filtered = allScripts
+
+        if (query.isNotBlank()) {
+            filtered = filtered.filter { it.title.contains(query, ignoreCase = true) }
+        }
+
+        if (category != "All") {
+            filtered = filtered.filter { it.category == category }
         }
         
-        if (filtered.isEmpty() && query.isBlank()) {
+        if (filtered.isEmpty() && query.isBlank() && category == "All") {
             _uiState.value = HomeUiState.Empty
         } else {
-            _uiState.value = HomeUiState.Success(scripts = filtered, searchQuery = query)
+            val currentState = _uiState.value
+            val isSearchActive = (currentState as? HomeUiState.Success)?.isSearchActive ?: false
+            _uiState.value = HomeUiState.Success(
+                scripts = filtered, 
+                searchQuery = query,
+                isSearchActive = isSearchActive,
+                selectedCategory = category
+            )
         }
     }
 
@@ -65,8 +99,10 @@ class HomeViewModel @Inject constructor(
         if (allScripts.isEmpty()) {
             _uiState.value = HomeUiState.Empty
         } else {
-            val query = (_uiState.value as? HomeUiState.Success)?.searchQuery ?: ""
-            filterScripts(query)
+            val currentState = _uiState.value as? HomeUiState.Success
+            val query = currentState?.searchQuery ?: ""
+            val category = currentState?.selectedCategory ?: "All"
+            filterScripts(query, category)
         }
     }
 

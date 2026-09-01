@@ -1,6 +1,8 @@
 package com.example.scriptflow.navigation
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
+    object Onboarding : Screen("onboarding")
     object Home : Screen("home")
     object Editor : Screen("editor/{scriptId}") {
         fun createRoute(scriptId: Long) = "editor/$scriptId"

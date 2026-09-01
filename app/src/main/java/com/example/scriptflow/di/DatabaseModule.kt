@@ -23,7 +23,9 @@ object DatabaseModule {
             context,
             ScriptDatabase::class.java,
             "script_db"
-        ).build()
+        )
+        .addMigrations(ScriptDatabase.MIGRATION_1_2)
+        .build()
     }
 
     @Provides
