@@ -21,6 +21,10 @@ val MontserratFontFamily = FontFamily(
     Font(googleFont = GoogleFont("Montserrat"), fontProvider = provider, weight = FontWeight.Black)
 )
 
+val AntonFontFamily = FontFamily(
+    Font(googleFont = GoogleFont("Anton"), fontProvider = provider)
+)
+
 val Typography = Typography(
     // Display/Title for script titles and headers
     displayLarge = TextStyle(

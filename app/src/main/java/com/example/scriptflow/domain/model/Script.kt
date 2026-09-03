@@ -10,5 +10,6 @@ data class Script(
     val createdAt: Long,
     val updatedAt: Long,
     val lastPosition: Int = 0,
-    val category: String? = null
+    val category: String? = null,
+    val isFavorite: Boolean = false
 )

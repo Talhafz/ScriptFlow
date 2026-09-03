@@ -12,7 +12,8 @@ data class ScriptEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val lastPosition: Int,
-    val category: String? = null
+    val category: String? = null,
+    val isFavorite: Boolean = false
 ) {
     fun toDomain() = Script(
         id = id,
@@ -21,7 +22,8 @@ data class ScriptEntity(
         createdAt = createdAt,
         updatedAt = updatedAt,
         lastPosition = lastPosition,
-        category = category
+        category = category,
+        isFavorite = isFavorite
     )
 
     companion object {
@@ -32,7 +34,8 @@ data class ScriptEntity(
             createdAt = script.createdAt,
             updatedAt = script.updatedAt,
             lastPosition = script.lastPosition,
-            category = script.category
+            category = script.category,
+            isFavorite = script.isFavorite
         )
     }
 }

@@ -10,11 +10,12 @@ val SurfaceSecondary = Color(0xFF1A1A1A)
 val SurfaceCard = Color(0xFF1E1E1E)
 
 val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFAAAAAA)
+val TextSecondary = Color(0xFF9E9E9E)
 val TextMuted = Color(0xFF707070)
 
-val PrimaryAccent = Color(0xFFFFD54A) // Yellow Gold
-val AccentPressed = Color(0xFFFFC107)
-val WarningHighlight = Color(0xFFFFD54A)
+val PrimaryAccent = Color(0xFFFFC94C) // Vibrant Gold
+val SecondaryAccent = Color(0xFFFF9F1C) // Warm Amber
+val AccentPressed = Color(0xFFE6B545)
+val WarningHighlight = Color(0xFFFFC94C)
 
 val ErrorRed = Color(0xFFFF5252)

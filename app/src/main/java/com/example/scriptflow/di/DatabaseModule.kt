@@ -24,7 +24,8 @@ object DatabaseModule {
             ScriptDatabase::class.java,
             "script_db"
         )
-        .addMigrations(ScriptDatabase.MIGRATION_1_2)
+        .addMigrations(ScriptDatabase.MIGRATION_1_2, ScriptDatabase.MIGRATION_2_3)
+        .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
     }
 

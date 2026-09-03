@@ -1,12 +1,19 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
-    android:height="24dp"
+    android:height="120dp"
     android:viewportWidth="120"
-    android:viewportHeight="24">
-    <!-- Stylized Play/Flow Icon -->
-    <path
-        android:fillColor="@color/primary_accent"
-        android:pathData="M2,4 L10,8 L2,12 Z M12,5 L20,5 L20,6 L12,6 Z M12,8 L22,8 L22,9 L12,9 Z M12,11 L18,11 L18,12 L12,12 Z" />
-    <!-- "ScriptFlow" text would be here as paths if it was a standalone logo.
-         For flexibility, we'll use this icon with Text in Compose. -->
+    android:viewportHeight="120">
+    <!-- Stylized Play/Flow Icon - Scaled up for Onboarding/Splash -->
+    <group
+        android:translateX="20"
+        android:translateY="20">
+        <!-- Play Triangle -->
+        <path
+            android:fillColor="@color/primary_accent"
+            android:pathData="M10,20 L60,50 L10,80 Z" />
+        <!-- Flow Lines -->
+        <path
+            android:fillColor="@color/primary_accent"
+            android:pathData="M70,30 L100,30 L100,36 L70,36 Z M70,48 L115,48 L115,54 L70,54 Z M70,66 L95,66 L95,72 L70,72 Z" />
+    </group>
 </vector>

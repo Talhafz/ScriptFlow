@@ -24,6 +24,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import com.example.scriptflow.feature.editor.splitIntoChunks
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.scriptflow.domain.model.DisplayMode
 import com.example.scriptflow.domain.model.PlaybackState
+import com.example.scriptflow.feature.editor.parseMarkdown
 import com.example.scriptflow.feature.teleprompter.components.CountdownOverlay
 import com.example.scriptflow.feature.teleprompter.components.TeleprompterOverlayControls
 import kotlinx.coroutines.delay
@@ -140,15 +144,24 @@ fun TeleprompterScreen(
                         )
                     }
                 } else {
-                    TeleprompterContent(
-                        scriptContent = uiState.script?.content ?: "",
-                        settings = uiState.settings,
-                        scrollOffsetProvider = { scrollOffset },
-                        onTextLayoutMeasured = viewModel::onTextLayoutMeasured
-                    )
+                    if (uiState.settings.displayMode == DisplayMode.HORIZONTAL) {
+                        HorizontalMarqueeContent(
+                            scriptContent = uiState.script?.content ?: "",
+                            settings = uiState.settings,
+                            scrollOffsetProvider = { scrollOffset },
+                            onWidthMeasured = viewModel::onTextLayoutMeasured
+                        )
+                    } else {
+                        TeleprompterContent(
+                            scriptContent = uiState.script?.content ?: "",
+                            settings = uiState.settings,
+                            scrollOffsetProvider = { scrollOffset },
+                            onHeightMeasured = viewModel::onTextLayoutMeasured
+                        )
+                    }
                 }
                 
-                ReadingZone()
+                ReadingZone(displayMode = uiState.settings.displayMode)
 
                 (uiState.playbackState as? PlaybackState.Countdown)?.let { countdown ->
                     CountdownOverlay(secondsLeft = countdown.secondsLeft)
@@ -162,7 +175,8 @@ fun TeleprompterScreen(
                     onPlayPauseClick = viewModel::togglePlayback,
                     onRestartClick = viewModel::restartPlayback,
                     onFontSizeChange = viewModel::updateFontSize,
-                    onWpmChange = viewModel::updateWpm,
+                    onSpeedChange = viewModel::updateSpeed,
+                    onDisplayModeChange = viewModel::updateDisplayMode,
                     onSettingsClick = viewModel::toggleQuickSettings,
                     onExitClick = onBack
                 )
@@ -176,12 +190,11 @@ fun TeleprompterContent(
     scriptContent: String,
     settings: com.example.scriptflow.domain.model.TeleprompterSettings,
     scrollOffsetProvider: () -> Float,
-    onTextLayoutMeasured: (Float) -> Unit
+    onHeightMeasured: (Float) -> Unit
 ) {
-    val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.dp
+    val accentColor = MaterialTheme.colorScheme.primary
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -191,47 +204,161 @@ fun TeleprompterContent(
             },
         contentAlignment = Alignment.TopCenter
     ) {
+        val totalHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
+        val centerOffset = totalHeightPx / 2f
+        
+        // Calculate half of the first line height to perfectly center it
+        val halfLineHeightPx = with(LocalDensity.current) { 
+            ((settings.fontSize * settings.lineSpacing) / 2).sp.toPx() 
+        }
+        
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .wrapContentHeight(align = Alignment.Top, unbounded = true)
                 .graphicsLayer {
-                    translationY = -scrollOffsetProvider()
+                    // Precision coordinate anchoring
+                    translationY = centerOffset - halfLineHeightPx - scrollOffsetProvider()
                 }
                 .onGloballyPositioned { layoutCoordinates ->
-                    onTextLayoutMeasured(layoutCoordinates.size.height.toFloat())
+                    onHeightMeasured(layoutCoordinates.size.height.toFloat())
                 }
-                .padding(horizontal = 48.dp)
+                .padding(horizontal = if (settings.fontSize > 40) 24.dp else 48.dp)
         ) {
-            Spacer(modifier = Modifier.height(screenHeight / 2))
+            // Handle Alignment segments
+            val blocks = scriptContent.splitByAlignment(settings.textAlignment)
             
-            // To achieve the yellow text in the reading zone, we would ideally use a custom layout
-            // or a shader. For now, we'll use the primary color if we want the "Live" feel.
-            // The image shows the text *at* the reading zone is yellow.
-            
-            Text(
-                text = scriptContent,
-                color = Color.White, // Default color, ideally shadowed or masked
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontSize = settings.fontSize.sp,
-                    lineHeight = (settings.fontSize * settings.lineSpacing).sp,
-                    letterSpacing = settings.letterSpacing.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = when (settings.textAlignment) {
-                    com.example.scriptflow.domain.model.TextAlignment.LEFT -> TextAlign.Start
-                    com.example.scriptflow.domain.model.TextAlignment.CENTER -> TextAlign.Center
-                    com.example.scriptflow.domain.model.TextAlignment.RIGHT -> TextAlign.End
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(screenHeight))
+            blocks.forEach { block ->
+                val lines = block.text.split("\n")
+                lines.forEach { line ->
+                    if (line.isNotEmpty()) {
+                        val chunks = line.splitIntoChunks(maxChars = 400)
+                        chunks.forEach { chunk ->
+                            Text(
+                                text = chunk.parseMarkdown(accentColor = accentColor),
+                                color = Color.White,
+                                style = MaterialTheme.typography.displayMedium.copy(
+                                    fontSize = settings.fontSize.sp,
+                                    lineHeight = (settings.fontSize * settings.lineSpacing).sp,
+                                    letterSpacing = settings.letterSpacing.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                textAlign = block.alignment,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        // Empty line
+                        Spacer(modifier = Modifier.height((settings.fontSize / 2).dp))
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun ReadingZone() {
+fun HorizontalMarqueeContent(
+    scriptContent: String,
+    settings: com.example.scriptflow.domain.model.TeleprompterSettings,
+    scrollOffsetProvider: () -> Float,
+    onWidthMeasured: (Float) -> Unit
+) {
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    
+    // Use the bold, blocky transit-style font (Anton)
+    // Red color and increased size for high impact
+    val displayStyle = MaterialTheme.typography.displayMedium.copy(
+        fontFamily = com.example.scriptflow.ui.theme.AntonFontFamily,
+        fontSize = (settings.fontSize * 2.2f).sp, // Increased to fill vertical band
+        lineHeight = (settings.fontSize * 2.2f * 1.2f).sp, // Fix clipping by ensuring enough line height
+        fontWeight = FontWeight.Black,
+        letterSpacing = 4.sp,
+        color = Color(0xFFFF2A2A) // vivid red
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                if (settings.mirrorMode) {
+                    scaleX = -1f
+                }
+            },
+        contentAlignment = Alignment.CenterStart // Centers text vertically
+    ) {
+        val density = LocalDensity.current
+        Row(
+            modifier = Modifier
+                .wrapContentWidth(unbounded = true)
+                .wrapContentHeight(unbounded = true) // Allow text to grow beyond standard bounds
+                .graphicsLayer {
+                    // Start from the beginning (right edge of screen)
+                    val startX = with(density) { screenWidth.toPx() }
+                    translationX = startX - scrollOffsetProvider()
+                }
+                .onGloballyPositioned { layoutCoordinates ->
+                    onWidthMeasured(layoutCoordinates.size.width.toFloat())
+                }
+        ) {
+            // Horizontal prompter strips newlines and processes as a single long line in ALL CAPS
+            val cleanContent = scriptContent.replace("\n", " ").trim().uppercase()
+            Text(
+                text = cleanContent,
+                style = displayStyle,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+data class AlignmentBlock(val text: String, val alignment: TextAlign)
+
+fun String.splitByAlignment(defaultAlignment: com.example.scriptflow.domain.model.TextAlignment): List<AlignmentBlock> {
+    val result = mutableListOf<AlignmentBlock>()
+    val regex = Regex("\\[ALIGN:(LEFT|CENTER|RIGHT)\\]")
+    var lastIndex = 0
+    var currentAlignment = when (defaultAlignment) {
+        com.example.scriptflow.domain.model.TextAlignment.LEFT -> TextAlign.Start
+        com.example.scriptflow.domain.model.TextAlignment.CENTER -> TextAlign.Center
+        com.example.scriptflow.domain.model.TextAlignment.RIGHT -> TextAlign.End
+    }
+    
+    val matches = regex.findAll(this).toList()
+    
+    if (matches.isEmpty()) {
+        result.add(AlignmentBlock(this, currentAlignment))
+        return result
+    }
+
+    matches.forEach { match ->
+        val textBefore = this.substring(lastIndex, match.range.first)
+        if (textBefore.isNotEmpty()) {
+            result.add(AlignmentBlock(textBefore, currentAlignment))
+        }
+        currentAlignment = when (match.groupValues[1]) {
+            "LEFT" -> TextAlign.Start
+            "CENTER" -> TextAlign.Center
+            "RIGHT" -> TextAlign.End
+            else -> currentAlignment
+        }
+        lastIndex = match.range.last + 1
+    }
+    
+    val remaining = this.substring(lastIndex)
+    if (remaining.isNotEmpty()) {
+        result.add(AlignmentBlock(remaining, currentAlignment))
+    }
+    
+    return result
+}
+
+@Composable
+fun ReadingZone(displayMode: DisplayMode) {
+    if (displayMode != DisplayMode.VERTICAL) return
+
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
     val zoneHeight = 80.dp

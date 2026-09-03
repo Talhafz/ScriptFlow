@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.scriptflow.domain.model.PlaybackState
 import com.example.scriptflow.domain.model.TeleprompterSettings
+import java.util.Locale
 
 @Composable
 fun TeleprompterOverlayControls(
@@ -33,7 +34,8 @@ fun TeleprompterOverlayControls(
     onPlayPauseClick: () -> Unit,
     onRestartClick: () -> Unit,
     onFontSizeChange: (Float) -> Unit,
-    onWpmChange: (Int) -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onDisplayModeChange: (com.example.scriptflow.domain.model.DisplayMode) -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
@@ -119,15 +121,38 @@ fun TeleprompterOverlayControls(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Speed (WPM)", color = Color.White)
-                                Text("${settings.wpm} WPM", color = MaterialTheme.colorScheme.primary)
+                                Text("Scroll Speed", color = Color.White)
+                                Text(String.format(Locale.getDefault(), "%.1fx", settings.scrollSpeed), color = MaterialTheme.colorScheme.primary)
                             }
                             Slider(
-                                value = settings.wpm.toFloat(),
-                                onValueChange = { onWpmChange(it.toInt()) },
-                                valueRange = 80f..250f,
+                                value = settings.scrollSpeed,
+                                onValueChange = onSpeedChange,
+                                valueRange = 0.5f..5.0f,
                                 colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary)
                             )
+                        }
+
+                        // Display Mode Toggle
+                        Column {
+                            Text("Display Mode", color = Color.White)
+                            Spacer(Modifier.height(8.dp))
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                com.example.scriptflow.domain.model.DisplayMode.entries.forEachIndexed { index, mode ->
+                                    SegmentedButton(
+                                        selected = settings.displayMode == mode,
+                                        onClick = { onDisplayModeChange(mode) },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = com.example.scriptflow.domain.model.DisplayMode.entries.size),
+                                        colors = SegmentedButtonDefaults.colors(
+                                            activeContainerColor = MaterialTheme.colorScheme.primary,
+                                            activeContentColor = Color.Black,
+                                            inactiveContainerColor = Color.Transparent,
+                                            inactiveContentColor = Color.White
+                                        )
+                                    ) {
+                                        Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -170,27 +195,27 @@ fun TeleprompterOverlayControls(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.semantics(mergeDescendants = true) {
-                                contentDescription = "Scroll speed ${settings.wpm} WPM"
+                                contentDescription = "Scroll speed ${settings.scrollSpeed}x"
                             }
                         ) {
-                            IconButton(onClick = { onWpmChange(settings.wpm - 10) }) {
+                            IconButton(onClick = { onSpeedChange((settings.scrollSpeed - 0.1f).coerceAtLeast(0.5f)) }) {
                                 Icon(Icons.Default.Remove, contentDescription = "Decrease speed", tint = Color.White)
                             }
                             
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = "${settings.wpm}",
+                                    text = String.format(Locale.getDefault(), "%.1fx", settings.scrollSpeed),
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Text(
-                                    text = "wpm",
+                                    text = "speed",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.4f)
                                 )
                             }
                             
-                            IconButton(onClick = { onWpmChange(settings.wpm + 10) }) {
+                            IconButton(onClick = { onSpeedChange((settings.scrollSpeed + 0.1f).coerceAtMost(5.0f)) }) {
                                 Icon(Icons.Default.Add, contentDescription = "Increase speed", tint = Color.White)
                             }
                         }
@@ -212,34 +237,6 @@ fun TeleprompterOverlayControls(
                             }
                         }
                     }
-                }
-                
-                Spacer(Modifier.height(24.dp))
-                
-                // Progress Bar Placeholder
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(4.dp)
-                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.3f) // Placeholder progress
-                                .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = "2:20",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
                 }
             }
         }

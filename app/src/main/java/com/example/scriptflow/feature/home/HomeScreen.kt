@@ -1,6 +1,7 @@
 package com.example.scriptflow.feature.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -44,11 +45,13 @@ fun HomeScreen(
     onNavigateToEditor: (Long) -> Unit,
     onNavigateToTeleprompter: (Long) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToQuickStart: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Script?>(null) }
     var selectedScriptForDetails by remember { mutableStateOf<Script?>(null) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -56,212 +59,256 @@ fun HomeScreen(
     val isSearchActive = (uiState as? HomeUiState.Success)?.isSearchActive == true
     val searchQuery = (uiState as? HomeUiState.Success)?.searchQuery ?: ""
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { 
-                    if (isSearchActive) {
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = viewModel::onSearchQueryChanged,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            decorationBox = { innerTextField ->
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        "Search scripts...",
-                                        color = Color.White.copy(alpha = 0.4f),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        )
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.logo_scriptflow),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = buildAnnotatedString {
-                                    withStyle(style = SpanStyle(color = Color.White)) {
-                                        append("Script")
-                                    }
-                                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                        append("Flow")
-                                    }
-                                },
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 22.sp
-                                )
-                            ) 
-                        }
-                    }
+    var showTopOverflowMenu by remember { mutableStateOf(false) }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawer(
+                drawerState = drawerState,
+                onHomeClick = { scope.launch { drawerState.close() } },
+                onSettingsClick = { 
+                    scope.launch { drawerState.close() }
+                    onNavigateToSettings() 
                 },
-                navigationIcon = {
-                    if (isSearchActive) {
-                        IconButton(onClick = viewModel::toggleSearch) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                        }
-                    } else {
-                        IconButton(onClick = { /* Menu */ }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
-                        }
-                    }
-                },
-                actions = {
-                    if (isSearchActive) {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.White)
-                            }
-                        }
-                    } else {
-                        IconButton(onClick = viewModel::toggleSearch) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                        }
-                        IconButton(onClick = { /* More */ }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black,
-                    titleContentColor = Color.White
-                )
+                onQuickStartClick = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToQuickStart()
+                }
             )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = Color.Black,
-                contentColor = Color.White,
-                tonalElevation = 0.dp
-            ) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = { },
-                    icon = { Icon(Icons.Default.List, contentDescription = null) },
-                    label = { Text("Scripts") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        indicatorColor = Color.Transparent,
-                        unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* Navigate to prompter list */ },
-                    icon = { Icon(Icons.Default.SettingsVoice, contentDescription = null) },
-                    label = { Text("Prompter") },
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = Color.Transparent,
-                        unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToSettings,
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = Color.Transparent,
-                        unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                    )
-                )
-            }
-        },
-        containerColor = Color.Black
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            when (val state = uiState) {
-                is HomeUiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-                is HomeUiState.Empty -> {
-                    EmptyState(onCreateClick = { onNavigateToEditor(-1L) })
-                }
-                is HomeUiState.Success -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "My Scripts",
-                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
-                            )
-                            
-                            Button(
-                                onClick = { onNavigateToEditor(-1L) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = Color.Black
-                                ),
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("New Script", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+        }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        if (isSearchActive) {
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = viewModel::onSearchQueryChanged,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                decorationBox = { innerTextField ->
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            "Search scripts...",
+                                            color = Color.White.copy(alpha = 0.4f),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                    innerTextField()
                                 }
+                            )
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.logo_scriptflow),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = buildAnnotatedString {
+                                        withStyle(style = SpanStyle(color = Color.White)) {
+                                            append("Script")
+                                        }
+                                        withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                                            append("Flow")
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 22.sp
+                                    )
+                                ) 
                             }
                         }
+                    },
+                    navigationIcon = {
+                        if (isSearchActive) {
+                            IconButton(onClick = viewModel::toggleSearch) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                        } else {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                            }
+                        }
+                    },
+                    actions = {
+                        if (isSearchActive) {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.White)
+                                }
+                            }
+                        } else {
+                            IconButton(onClick = viewModel::toggleSearch) {
+                                Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                            }
+                            Box {
+                                IconButton(onClick = { showTopOverflowMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color.White)
+                                }
+                                HomeOverflowMenu(
+                                    expanded = showTopOverflowMenu,
+                                    onDismiss = { showTopOverflowMenu = false },
+                                    onSortOptionSelected = viewModel::onSortOptionSelected,
+                                    onBulkSelectClick = viewModel::toggleBulkSelectionMode
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black,
+                        titleContentColor = Color.White
+                    )
+                )
+            },
+            bottomBar = {
+                NavigationBar(
+                    containerColor = Color.Black,
+                    contentColor = Color.White,
+                    tonalElevation = 0.dp
+                ) {
+                    NavigationBarItem(
+                        selected = true,
+                        onClick = { },
+                        icon = { Icon(Icons.Default.List, contentDescription = null) },
+                        label = { Text("Scripts") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = Color.Transparent,
+                            unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onNavigateToQuickStart,
+                        icon = { Icon(Icons.Default.SettingsVoice, contentDescription = null) },
+                        label = { Text("Prompter") },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = Color.Transparent,
+                            unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onNavigateToSettings,
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        label = { Text("Settings") },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = Color.Transparent,
+                            unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                        )
+                    )
+                }
+            },
+            containerColor = Color.Black
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+            ) {
+                when (val state = uiState) {
+                    is HomeUiState.Loading -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    is HomeUiState.Empty -> {
+                        EmptyState(onCreateClick = { onNavigateToEditor(-1L) })
+                    }
+                    is HomeUiState.Success -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "My Scripts",
+                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                                
+                                Button(
+                                    onClick = { onNavigateToEditor(-1L) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("New Script", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                                    }
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(16.dp))
+                            
+                            CategoryChips(
+                                selectedCategory = state.selectedCategory,
+                                onCategorySelected = viewModel::onCategorySelected
+                            )
+                        }
+
+                        if (state.isBulkSelectionMode) {
+                            BulkActionBar(
+                                selectedCount = state.selectedScriptIds.size,
+                                onDeleteClick = viewModel::deleteSelectedScripts,
+                                onCancelClick = viewModel::toggleBulkSelectionMode
+                            )
+                        }
                         
-                        Spacer(Modifier.height(16.dp))
-                        
-                        CategoryChips(
-                            selectedCategory = (uiState as? HomeUiState.Success)?.selectedCategory ?: "All",
-                            onCategorySelected = viewModel::onCategorySelected
+                        ScriptList(
+                            scripts = state.scripts,
+                            isBulkSelectionMode = state.isBulkSelectionMode,
+                            selectedScriptIds = state.selectedScriptIds,
+                            onScriptClick = { scriptId ->
+                                if (state.isBulkSelectionMode) {
+                                    viewModel.toggleScriptSelection(scriptId)
+                                } else {
+                                    selectedScriptForDetails = state.scripts.find { it.id == scriptId }
+                                }
+                            },
+                            onPlayClick = { scriptId ->
+                                val script = state.scripts.find { it.id == scriptId }
+                                if (script?.title.isNullOrBlank()) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Please add a title to the script before playing")
+                                    }
+                                } else if (script?.content.isNullOrBlank()) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Please add content to the script before playing")
+                                    }
+                                } else {
+                                    onNavigateToTeleprompter(scriptId)
+                                }
+                            },
+                            onDeleteClick = { showDeleteDialog = it },
+                            onDuplicateClick = viewModel::duplicateScript,
+                            onFavoriteClick = viewModel::toggleFavorite,
+                            onCategoryChange = viewModel::updateScriptCategory
                         )
                     }
-                    
-                    ScriptList(
-                        scripts = state.scripts,
-                        onScriptClick = { scriptId ->
-                            selectedScriptForDetails = state.scripts.find { it.id == scriptId }
-                        },
-                        onPlayClick = { scriptId ->
-                            val script = state.scripts.find { it.id == scriptId }
-                            if (script?.title.isNullOrBlank()) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Please add a title to the script before playing")
-                                }
-                            } else if (script?.content.isNullOrBlank()) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Please add content to the script before playing")
-                                }
-                            } else {
-                                onNavigateToTeleprompter(scriptId)
-                            }
-                        },
-                        onDeleteClick = { showDeleteDialog = it },
-                        onDuplicateClick = viewModel::duplicateScript
-                    )
                 }
             }
         }
@@ -321,6 +368,151 @@ fun HomeScreen(
 }
 
 @Composable
+fun AppDrawer(
+    drawerState: DrawerState,
+    onHomeClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onQuickStartClick: () -> Unit
+) {
+    ModalDrawerSheet(
+        drawerState = drawerState,
+        drawerContainerColor = Color(0xFF0A0A0A),
+        drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(id = R.drawable.logo_scriptflow),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    text = "ScriptFlow",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = Color.White
+                )
+            }
+            
+            Spacer(Modifier.height(48.dp))
+            
+            DrawerItem("My Scripts", Icons.Default.List, onHomeClick)
+            DrawerItem("Quick Start", Icons.Default.SettingsVoice, onQuickStartClick)
+            DrawerItem("Settings", Icons.Default.Settings, onSettingsClick)
+            
+            Spacer(Modifier.weight(1f))
+            
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+            Spacer(Modifier.height(16.dp))
+            
+            Text(
+                "About ScriptFlow",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Version 1.2.0 • Premium Edition",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.4f)
+            )
+        }
+    }
+}
+
+@Composable
+fun DrawerItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.6f))
+            Spacer(Modifier.width(16.dp))
+            Text(label, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+@Composable
+fun HomeOverflowMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onSortOptionSelected: (SortOption) -> Unit,
+    onBulkSelectClick: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.background(Color(0xFF1A1A1A))
+    ) {
+        Text(
+            "Sort scripts by:",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        DropdownMenuItem(
+            text = { Text("Recently Updated", color = Color.White) },
+            onClick = { onSortOptionSelected(SortOption.RECENTLY_UPDATED); onDismiss() }
+        )
+        DropdownMenuItem(
+            text = { Text("Title A–Z", color = Color.White) },
+            onClick = { onSortOptionSelected(SortOption.TITLE_AZ); onDismiss() }
+        )
+        DropdownMenuItem(
+            text = { Text("Word Count", color = Color.White) },
+            onClick = { onSortOptionSelected(SortOption.WORD_COUNT); onDismiss() }
+        )
+        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+        DropdownMenuItem(
+            text = { Text("Bulk Select", color = Color.White) },
+            onClick = { onBulkSelectClick(); onDismiss() }
+        )
+    }
+}
+
+@Composable
+fun BulkActionBar(
+    selectedCount: Int,
+    onDeleteClick: () -> Unit,
+    onCancelClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "$selectedCount selected",
+                color = Color.Black,
+                fontWeight = FontWeight.Bold
+            )
+            Row {
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Selected", tint = Color.Black)
+                }
+                IconButton(onClick = onCancelClick) {
+                    Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun CategoryChips(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit
@@ -356,10 +548,14 @@ fun CategoryChips(
 @Composable
 fun ScriptList(
     scripts: List<Script>,
+    isBulkSelectionMode: Boolean,
+    selectedScriptIds: Set<Long>,
     onScriptClick: (Long) -> Unit,
     onPlayClick: (Long) -> Unit,
     onDeleteClick: (Script) -> Unit,
-    onDuplicateClick: (Script) -> Unit
+    onDuplicateClick: (Script) -> Unit,
+    onFavoriteClick: (Script) -> Unit,
+    onCategoryChange: (Script, String) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 100.dp, top = 16.dp),
@@ -368,10 +564,14 @@ fun ScriptList(
         items(scripts, key = { it.id }) { script ->
             ScriptCard(
                 script = script,
+                isSelected = selectedScriptIds.contains(script.id),
+                isBulkSelectionMode = isBulkSelectionMode,
                 onClick = { onScriptClick(script.id) },
                 onPlayClick = { onPlayClick(script.id) },
                 onDeleteClick = { onDeleteClick(script) },
-                onDuplicateClick = { onDuplicateClick(script) }
+                onDuplicateClick = { onDuplicateClick(script) },
+                onFavoriteClick = { onFavoriteClick(script) },
+                onCategoryChange = { onCategoryChange(script, it) }
             )
         }
     }
@@ -380,20 +580,26 @@ fun ScriptList(
 @Composable
 fun ScriptCard(
     script: Script,
+    isSelected: Boolean,
+    isBulkSelectionMode: Boolean,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onDuplicateClick: () -> Unit
+    onDuplicateClick: () -> Unit,
+    onFavoriteClick: () -> Unit,
+    onCategoryChange: (String) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showCategoryMenu by remember { mutableStateOf(false) }
     
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121212)
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color(0xFF121212)
         ),
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -402,6 +608,15 @@ fun ScriptCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isBulkSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() },
+                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+
             // File Icon
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -432,37 +647,31 @@ fun ScriptCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.4f)
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val wordCount = script.content.split(Regex("\\s+")).filter { it.isNotBlank() }.size
-                    Text(
-                        text = "$wordCount words",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = " • ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    val estMinutes = (wordCount / 150.0).let { if (it < 1.0) 1 else it.toInt() }
-                    Text(
-                        text = "$estMinutes min 45 sec",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
+                if (script.category != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = CircleShape,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = script.category,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             
-            // Star Icon
-            Icon(
-                imageVector = Icons.Default.Star,
-                contentDescription = "Favorite",
-                tint = if (script.id % 3 == 0L) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
-                modifier = Modifier.size(20.dp)
-            )
-            
-            Spacer(Modifier.width(8.dp))
+            // Favorite Icon
+            IconButton(onClick = onFavoriteClick) {
+                Icon(
+                    imageVector = if (script.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = "Favorite",
+                    tint = if (script.isFavorite) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             
             Box {
                 IconButton(onClick = { showMenu = true }) {
@@ -482,6 +691,10 @@ fun ScriptCard(
                         onClick = { showMenu = false; onClick() }
                     )
                     DropdownMenuItem(
+                        text = { Text("Set Category", color = Color.White) },
+                        onClick = { showMenu = false; showCategoryMenu = true }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Duplicate", color = Color.White) },
                         onClick = { showMenu = false; onDuplicateClick() }
                     )
@@ -489,6 +702,20 @@ fun ScriptCard(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = { showMenu = false; onDeleteClick() }
                     )
+                }
+                
+                DropdownMenu(
+                    expanded = showCategoryMenu,
+                    onDismissRequest = { showCategoryMenu = false },
+                    modifier = Modifier.background(Color(0xFF1A1A1A))
+                ) {
+                    val categories = listOf("None", "Videos", "Speeches", "Lessons")
+                    categories.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat, color = Color.White) },
+                            onClick = { onCategoryChange(cat); showCategoryMenu = false }
+                        )
+                    }
                 }
             }
         }

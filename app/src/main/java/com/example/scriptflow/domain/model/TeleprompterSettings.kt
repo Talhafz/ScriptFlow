@@ -6,6 +6,10 @@ enum class ScreenOrientation {
     AUTO, LANDSCAPE
 }
 
+enum class DisplayMode {
+    VERTICAL, HORIZONTAL
+}
+
 @Immutable
 data class TeleprompterSettings(
     val fontSize: Float = 24f,
@@ -19,5 +23,7 @@ data class TeleprompterSettings(
     val mirrorMode: Boolean = false,
     val countdownSeconds: Int = 3,
     val keepScreenAwake: Boolean = true,
-    val orientation: ScreenOrientation = ScreenOrientation.LANDSCAPE
+    val orientation: ScreenOrientation = ScreenOrientation.LANDSCAPE,
+    val hasSeenOnboarding: Boolean = false,
+    val displayMode: DisplayMode = DisplayMode.VERTICAL
 )

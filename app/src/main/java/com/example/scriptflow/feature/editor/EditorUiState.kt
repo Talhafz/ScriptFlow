@@ -1,12 +1,19 @@
 package com.example.scriptflow.feature.editor
 
+import androidx.compose.ui.text.input.TextFieldValue
+
 data class EditorUiState(
     val scriptId: Long = 0,
     val title: String = "",
-    val content: String = "",
+    val content: TextFieldValue = TextFieldValue(""),
+    val category: String? = null,
+    val isFavorite: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
     val wordCount: Int = 0,
     val characterCount: Int = 0,
     val estimatedDuration: String = "0:00",
     val isSaving: Boolean = false,
-    val hasUnsavedChanges: Boolean = false
+    val hasUnsavedChanges: Boolean = false,
+    val undoStack: List<String> = emptyList(),
+    val redoStack: List<String> = emptyList()
 )
