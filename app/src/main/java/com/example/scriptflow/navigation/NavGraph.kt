@@ -1,6 +1,9 @@
 package com.example.scriptflow.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -13,11 +16,16 @@ import com.example.scriptflow.feature.teleprompter.TeleprompterScreen
 import com.example.scriptflow.feature.settings.SettingsScreen
 import com.example.scriptflow.feature.splash.SplashScreen
 import com.example.scriptflow.feature.onboarding.OnboardingScreen
+import com.example.scriptflow.feature.splash.SplashViewModel
+import com.example.scriptflow.feature.home.QuickStartScreen
 
 @Composable
 fun NavGraph(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    splashViewModel: SplashViewModel = hiltViewModel()
 ) {
+    val hasSeenOnboarding by splashViewModel.hasSeenOnboarding.collectAsState(initial = null)
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
@@ -25,7 +33,8 @@ fun NavGraph(
         composable(Screen.Splash.route) {
             SplashScreen(
                 onSplashFinished = {
-                    navController.navigate(Screen.Onboarding.route) {
+                    val target = if (hasSeenOnboarding == true) Screen.Home.route else Screen.Onboarding.route
+                    navController.navigate(target) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }
@@ -50,6 +59,9 @@ fun NavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToQuickStart = {
+                    navController.navigate(Screen.QuickStart.route)
                 }
             )
         }
@@ -74,6 +86,14 @@ fun NavGraph(
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.QuickStart.route) {
+            QuickStartScreen(
+                onNavigateToTeleprompter = { scriptId ->
+                    navController.navigate(Screen.Teleprompter.createRoute(scriptId))
+                },
                 onBack = { navController.popBackStack() }
             )
         }

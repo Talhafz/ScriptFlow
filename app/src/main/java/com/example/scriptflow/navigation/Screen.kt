@@ -11,4 +11,5 @@ sealed class Screen(val route: String) {
         fun createRoute(scriptId: Long) = "teleprompter/$scriptId"
     }
     object Settings : Screen("settings")
+    object QuickStart : Screen("quick_start")
 }

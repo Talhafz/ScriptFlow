@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryAccent,
-    secondary = SurfaceSecondary,
+    secondary = SecondaryAccent,
     tertiary = PrimaryAccent,
     background = BackgroundMain,
     surface = SurfaceElevated,
@@ -29,7 +29,7 @@ private val DarkColorScheme = darkColorScheme(
 
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryAccent,
-    secondary = SurfaceSecondary,
+    secondary = SecondaryAccent,
     tertiary = PrimaryAccent,
     background = Color(0xFFF5F5F5),
     surface = Color.White,

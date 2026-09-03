@@ -37,9 +37,9 @@ class SettingsViewModel @Inject constructor(
 
     private fun detectPreset(settings: TeleprompterSettings): PresetTheme {
         return when {
-            settings.textColor == 0xFFFFFFFF && settings.backgroundColor == 0xFF000000 -> PresetTheme.CLASSIC
-            settings.textColor == 0xFFB0B0B0 && settings.backgroundColor == 0xFF121212 -> PresetTheme.DARK
-            settings.textColor == 0xFFFFFF00 && settings.backgroundColor == 0xFF000000 -> PresetTheme.HIGH_CONTRAST
+            settings.textColor == 0xFFFFFFFFL && settings.backgroundColor == 0xFF000000L -> PresetTheme.CLASSIC
+            settings.textColor == 0xFFB0B0B0L && settings.backgroundColor == 0xFF121212L -> PresetTheme.DARK
+            settings.textColor == 0xFFFFFF00L && settings.backgroundColor == 0xFF000000L -> PresetTheme.HIGH_CONTRAST
             else -> PresetTheme.CUSTOM
         }
     }
@@ -92,19 +92,23 @@ class SettingsViewModel @Inject constructor(
         updateSettings { it.copy(orientation = orientation) }
     }
 
+    fun updateDisplayMode(mode: com.example.scriptflow.domain.model.DisplayMode) {
+        updateSettings { it.copy(displayMode = mode) }
+    }
+
     fun applyThemePreset(preset: PresetTheme) {
         val newSettings = when (preset) {
             PresetTheme.CLASSIC -> _uiState.value.settings.copy(
-                textColor = 0xFFFFFFFF,
-                backgroundColor = 0xFF000000
+                textColor = 0xFFFFFFFFL,
+                backgroundColor = 0xFF000000L
             )
             PresetTheme.DARK -> _uiState.value.settings.copy(
-                textColor = 0xFFB0B0B0,
-                backgroundColor = 0xFF121212
+                textColor = 0xFFB0B0B0L,
+                backgroundColor = 0xFF121212L
             )
             PresetTheme.HIGH_CONTRAST -> _uiState.value.settings.copy(
-                textColor = 0xFFFFFF00,
-                backgroundColor = 0xFF000000
+                textColor = 0xFFFFFF00L,
+                backgroundColor = 0xFF000000L
             )
             PresetTheme.CUSTOM -> return
         }

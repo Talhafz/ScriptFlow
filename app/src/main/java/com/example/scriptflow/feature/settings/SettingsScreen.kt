@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.scriptflow.domain.model.ScreenOrientation
 import com.example.scriptflow.domain.model.TextAlignment
+import com.example.scriptflow.domain.model.DisplayMode
 import com.example.scriptflow.feature.settings.components.LivePreviewCard
 import java.util.*
 
@@ -129,6 +130,11 @@ fun SettingsScreen(
                         selected = uiState.settings.textAlignment,
                         onAlignmentSelected = viewModel::updateTextAlignment
                     )
+
+                    DisplayModeSetting(
+                        selected = uiState.settings.displayMode,
+                        onDisplayModeSelected = viewModel::updateDisplayMode
+                    )
                 }
 
                 // APPEARANCE Category
@@ -151,11 +157,11 @@ fun SettingsScreen(
                 // PLAYBACK Category
                 SettingsSection(title = "Playback") {
                     SliderSetting(
-                        label = "Words Per Minute",
-                        value = uiState.settings.wpm.toFloat(),
-                        range = 80f..250f,
-                        valueDisplay = { "${it.toInt()} WPM" },
-                        onValueChange = { viewModel.updateWpm(it.toInt()) }
+                        label = "Scroll Speed",
+                        value = uiState.settings.scrollSpeed,
+                        range = 0.5f..5.0f,
+                        valueDisplay = { String.format(Locale.getDefault(), "%.1fx", it) },
+                        onValueChange = viewModel::updateScrollSpeed
                     )
                     
                     DropdownSetting(
@@ -352,6 +358,27 @@ fun OrientationSetting(
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = ScreenOrientation.entries.size)
                 ) {
                     Text(orientation.name.lowercase().replaceFirstChar { it.uppercase() })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DisplayModeSetting(
+    selected: com.example.scriptflow.domain.model.DisplayMode,
+    onDisplayModeSelected: (com.example.scriptflow.domain.model.DisplayMode) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Display Mode", style = MaterialTheme.typography.bodyMedium)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            com.example.scriptflow.domain.model.DisplayMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = selected == mode,
+                    onClick = { onDisplayModeSelected(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = com.example.scriptflow.domain.model.DisplayMode.entries.size)
+                ) {
+                    Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
                 }
             }
         }

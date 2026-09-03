@@ -1,9 +1,11 @@
 package com.example.scriptflow.feature.teleprompter
 
+import android.util.Log
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.scriptflow.domain.model.DisplayMode
 import com.example.scriptflow.domain.model.PlaybackState
 import com.example.scriptflow.domain.model.TeleprompterSettings
 import com.example.scriptflow.domain.usecase.GetScriptsUseCase
@@ -38,7 +40,7 @@ class TeleprompterViewModel @Inject constructor(
     private var tickerJob: Job? = null
     private var controlsTimerJob: Job? = null
     
-    private var textHeight: Float = 0f
+    private var scrollDimension: Float = 0f
     private var pixelsPerSecond: Float = 0f
 
     init {
@@ -57,7 +59,8 @@ class TeleprompterViewModel @Inject constructor(
                             script = script,
                             isLoading = false
                         )
-                        _scrollOffset.value = script.lastPosition.toFloat()
+                        _scrollOffset.value = 0f // FORCE RESET
+                        Log.d("TeleprompterVM", "Script loaded: ${script.title}, length: ${script.content.length}")
                         calculateSpeed()
                     } else {
                         _uiState.value = _uiState.value.copy(
@@ -84,23 +87,24 @@ class TeleprompterViewModel @Inject constructor(
         }
     }
 
-    fun onTextLayoutMeasured(height: Float) {
-        if (height > 0 && textHeight != height) {
-            textHeight = height
+    fun onTextLayoutMeasured(dimension: Float) {
+        if (dimension > 0 && scrollDimension != dimension) {
+            scrollDimension = dimension
             calculateSpeed()
         }
     }
 
     private fun calculateSpeed() {
-        val script = _uiState.value.script ?: return
         val settings = _uiState.value.settings
         
-        if (textHeight <= 0) return
+        if (scrollDimension <= 0) return
 
-        val words = script.content.split(Regex("\\s+")).filter { it.isNotBlank() }.size.coerceAtLeast(1)
-        val durationSeconds = if (settings.wpm > 0) (words.toDouble() / settings.wpm * 60) else 1.0
+        // New Aggressive Speed Model:
+        // Speed is independent of word count and instead scales with font size.
+        // Base velocity (1.0x) is now 8x the font size per second.
+        val baseVelocity = settings.fontSize * 8f
         
-        pixelsPerSecond = (textHeight / durationSeconds.toFloat()) * settings.scrollSpeed
+        pixelsPerSecond = baseVelocity * settings.scrollSpeed
     }
 
     fun togglePlayback() {
@@ -147,9 +151,17 @@ class TeleprompterViewModel @Inject constructor(
                 val newOffset = _scrollOffset.value + (pixelsPerSecond * deltaSeconds)
                 _scrollOffset.value = newOffset
                 
-                // Stop if we scrolled past the end
-                // We add some buffer so the last line passes the reading zone
-                if (newOffset > textHeight + 500) {
+                // NEW LIMIT LOGIC:
+                // With coordinate anchoring, the text is fully scrolled past the top 
+                // when offset > contentHeight + (screenHeight / 2)
+                // We use a safe buffer of 2000 for horizontal marquee as before.
+                val limit = if (_uiState.value.settings.displayMode == DisplayMode.HORIZONTAL) {
+                    scrollDimension + 2000
+                } else {
+                    scrollDimension + 1000 // Safely clears the reading zone
+                }
+                
+                if (newOffset > limit) {
                     pausePlayback()
                     _uiState.value = _uiState.value.copy(playbackState = PlaybackState.Finished)
                 }
@@ -211,6 +223,13 @@ class TeleprompterViewModel @Inject constructor(
     fun updateWpm(wpm: Int) {
         viewModelScope.launch {
             val newSettings = _uiState.value.settings.copy(wpm = wpm.coerceIn(80, 250))
+            updateSettingsUseCase(newSettings)
+        }
+    }
+
+    fun updateDisplayMode(mode: DisplayMode) {
+        viewModelScope.launch {
+            val newSettings = _uiState.value.settings.copy(displayMode = mode)
             updateSettingsUseCase(newSettings)
         }
     }
